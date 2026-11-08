@@ -1,0 +1,39 @@
+name: Build Android AAB
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: "versionCode (entier, à augmenter à chaque envoi Play)"
+        default: "1"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm install
+      - run: mkdir -p www && cp game.html www/index.html && cp ads.js ads-config.js www/
+      - run: npx cap add android
+      - run: npx cap sync android
+      - run: python3 patch_android.py
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+      - name: Build AAB
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew bundleRelease --no-daemon
+      - name: Sign AAB
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "$KS_B64" | base64 -d > upload.jks
+          cp android/app/build/outputs/bundle/release/app-release.aab boing-buddies.aab
+          jarsigner -sigalg SHA256withRSA -digestalg SHA-256 -keystore upload.jks -storepass "$KS_PASS" boing-buddies.aab "$KEY_ALIAS"
+          rm upload.jks
+      - uses: actions/upload-artifact@v4
+        with: { name: boing-buddies-aab, path: boing-buddies.aab }
