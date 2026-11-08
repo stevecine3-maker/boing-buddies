@@ -1,0 +1,7 @@
+{
+  "appId": "com.boingbuddies.game",
+  "appName": "Boing Buddies",
+  "webDir": "www",
+  "backgroundColor": "#1d2b53",
+  "android": { "allowMixedContent": false }
+}
